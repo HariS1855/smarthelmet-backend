@@ -88,16 +88,39 @@ public void sendAlertToWorker(Worker receiver, Worker injuredWorker, Alert alert
 
 
     // ✅ Safe SMS (to worker who was alerted)
-    public void sendSafeSms(Worker worker, Alert alert) {
-        String sms = "✅ SAFE\nWorker: " + worker.getName() +
-                "\nHelmet: " + worker.getHelmetId() +
-                "\nAcknowledged at: " + alert.getAcknowledgedAt();
+    // ✅ SAFE SMS to co-workers
+public void sendSafeSms(Worker receiver, Worker injuredWorker, Alert alert) {
 
-        sendSms(worker.getPhoneNumber(), sms);
+    try {
+        if (receiver == null || injuredWorker == null) return;
 
-        // Cancel pending voice call if acked
-        cancelScheduledVoiceCall(worker.getHelmetId());
+        String receiverPhone = receiver.getPhoneNumber();
+        if (receiverPhone == null || receiverPhone.isEmpty()) return;
+
+        if (!receiverPhone.startsWith("+")) {
+            receiverPhone = "+91" + receiverPhone;
+        }
+
+        String message = "✅ SAFE\n"
+                + "Worker: " + injuredWorker.getName() + "\n"
+                + "Helmet: " + injuredWorker.getHelmetId() + "\n"
+                + "Acknowledged at: " + alert.getAcknowledgedAt();
+
+        Message.creator(
+                new PhoneNumber(receiverPhone),
+                new PhoneNumber(twilioConfig.getTrialNumber()),
+                message
+        ).create();
+
+        System.out.println("📩 SAFE SMS sent to co-worker: " + receiverPhone);
+
+    } catch (Exception e) {
+        System.out.println("❌ Failed to send SAFE SMS: " + e.getMessage());
     }
+
+    // Cancel pending voice call
+    cancelScheduledVoiceCall(injuredWorker.getHelmetId());
+}
 
     // ✅ Safe SMS to family
     public void sendFamilySms(Worker worker, Alert alert) {
