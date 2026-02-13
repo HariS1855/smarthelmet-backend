@@ -96,7 +96,7 @@ public String acknowledgeAlert(@PathVariable String helmetId) {
         List<Worker> allWorkers = workerRepository.findAll();
         for (Worker w : allWorkers) {
             if (!w.getHelmetId().equals(worker.getHelmetId())) {
-                notificationService.sendSafeSms(w, alert);
+                notificationService.sendSafeSms(w, worker, alert);
             }
         }
 
