@@ -22,6 +22,10 @@ public class NotificationService {
 
     @Value("${voice.call.delay-seconds:60}") // default 10 minutes if not set
     private int voiceCallDelaySeconds;
+    
+    @Value("${app.base-url}")
+    private String appBaseUrl;
+
 
     // Store scheduled tasks so we can cancel them on ack
     private final Map<String, ScheduledFuture<?>> scheduledCalls = new ConcurrentHashMap<>();
@@ -46,15 +50,42 @@ public class NotificationService {
     }
 
     // 🚨 Alert SMS to co-workers
-    public void sendAlertToWorker(Worker worker, Alert alert) {
-        String h="https://www.google.com/maps?q=" + alert.getLat() + "," + alert.getLng();
-        String sms = "🚨 ALERT!\nWorker: " + worker.getName() +
-                "\nHelmet: " + worker.getHelmetId() +
-                "\nMessage: " + alert.getMessage() +
-                "\nLocation: " +h;
+    // 🚨 Alert SMS to co-workers
+public void sendAlertToWorker(Worker receiver, Worker injuredWorker, Alert alert) {
 
-        sendSms(worker.getPhoneNumber(), sms);
+    try {
+        if (receiver == null || injuredWorker == null) return;
+
+        String receiverPhone = receiver.getPhoneNumber();
+        if (receiverPhone == null || receiverPhone.isEmpty()) return;
+
+        // Add +91 if not present
+        if (!receiverPhone.startsWith("+")) {
+            receiverPhone = "+91" + receiverPhone;
+        }
+
+        String locationLink = "https://www.google.com/maps?q=" 
+                + alert.getLat() + "," + alert.getLng();
+
+        String sms = "🚨 ALERT!\n"
+                + "Worker: " + injuredWorker.getName() + "\n"
+                + "Helmet: " + injuredWorker.getHelmetId() + "\n"
+                + "Message: " + alert.getMessage() + "\n"
+                + "Location: " + locationLink;
+
+        Message.creator(
+                new PhoneNumber(receiverPhone),
+                new PhoneNumber(twilioConfig.getTrialNumber()),
+                sms
+        ).create();
+
+        System.out.println("📩 Alert SMS sent to co-worker: " + receiverPhone);
+
+    } catch (Exception e) {
+        System.out.println("❌ Failed to send co-worker alert SMS: " + e.getMessage());
     }
+}
+
 
     // ✅ Safe SMS (to worker who was alerted)
     public void sendSafeSms(Worker worker, Alert alert) {
@@ -125,7 +156,7 @@ public class NotificationService {
             Call.creator(
                     new PhoneNumber(familyNumber),
                     new PhoneNumber(twilioConfig.getTrialNumber()),
-                    new URI("https://smarthelmet-backend-production.up.railway.app/voice/alert")
+                    new URI(appBaseUrl + "/voice/alert")
             ).create();
 
             System.out.println("📞 Voice call placed to " + familyNumber);
